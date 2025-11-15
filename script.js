@@ -308,6 +308,63 @@ $(document).ready(function(){
 
     alert(`Student: ${fullName}\nAbsences: ${absDisplay}`);
   });
+/* ========================== jQuery: highlight excellent students ========================== */
+/*
+Definition:
+- "Excellent" = fewer than 3 absences (absences cell < 3).
+- We rely on your existing evaluateRow/evaluateAll that fills .absences.
+
+Behavior:
+- On click "Highlight Excellent Students": find rows with absences < 3, add .row-excellent
+  + quick animation (fade out/in) to draw attention.
+- On click "Reset Colors": remove .row-excellent and restore original look.
+*/
+
+$(document).ready(function(){
+
+  // safety: ensure absences are computed before we check
+  function ensureComputed() {
+    if (typeof evaluateAll === 'function') evaluateAll();
+  }
+
+  $('#highlightExcellentBtn').on('click', function(){
+    ensureComputed();
+
+    // iterate rows and animate the "excellent" ones
+    $('#attendanceTable tbody tr').each(function(){
+      const absText = $(this).find('.absences').text().trim();
+      const absences = parseInt(absText || '0', 10);
+
+      if (!isNaN(absences) && absences < 3) {
+        // add class and animate (fade)
+        const $row = $(this);
+        $row.addClass('row-excellent')
+            .fadeTo(150, 0.4)
+            .fadeTo(150, 1.0);
+      }
+    });
+  });
+
+  $('#resetColorsBtn').on('click', function(){
+    // remove highlight class and reset inline opacity if any
+    $('#attendanceTable tbody tr').removeClass('row-excellent').css('opacity', '');
+  });
+
+  // bonus: if checkboxes change AND you already highlighted, keep it dynamic
+  $('#attendanceTable').on('change', 'input[type="checkbox"]', function(){
+    const $tr = $(this).closest('tr');
+    // re-evaluate only this row (your function already exists)
+    if (typeof evaluateRow === 'function') evaluateRow($tr[0]);
+
+    // if row was excellent but now >=3 absences, drop highlight; if now <3, add it back
+    const abs = parseInt($tr.find('.absences').text().trim() || '0', 10);
+    if (!isNaN(abs)) {
+      if (abs < 3) $tr.addClass('row-excellent');
+      else $tr.removeClass('row-excellent');
+    }
+  });
+
+});
 
 
 
