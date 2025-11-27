@@ -1,15 +1,6 @@
 /* ========================== ATTENDANCE ROW LOGIC ========================== */
-/* Columns (1-based) in the table:
-   1:ID  2:Last  3:First  4:Course
-   5..10: S1..S6 (sessions)
-   11..16: P1..P6 (participation)
-   17: Absences  18: Participations  19: Message
-*/
-
 function evaluateRow(tr) {
-    // sessions S1..S6 => 5..10
     const sessionChecks = Array.from(tr.querySelectorAll('td:nth-child(n+5):nth-child(-n+10) input[type="checkbox"]'));
-    // participation P1..P6 => 11..16
     const partChecks = Array.from(tr.querySelectorAll('td:nth-child(n+11):nth-child(-n+16) input[type="checkbox"]'));
 
     const presents = sessionChecks.filter(c => c.checked).length;
@@ -23,13 +14,11 @@ function evaluateRow(tr) {
     if (absCell) absCell.textContent = absences;
     if (partCell) partCell.textContent = parts;
 
-    // highlight row by number of absences
     tr.classList.remove('abs-low', 'abs-mid', 'abs-high');
     if (absences < 3) tr.classList.add('abs-low');
     else if (absences <= 4) tr.classList.add('abs-mid');
     else tr.classList.add('abs-high');
 
-    // simple messaging (tweak thresholds if needed)
     let msg = "";
     if (absences >= 5) {
         msg = "Excluded – too many absences – You need to participate more";
@@ -47,7 +36,6 @@ function evaluateAll() {
     document.querySelectorAll('#attendanceTable tbody tr').forEach(evaluateRow);
 }
 
-// live recompute when a checkbox in table changes
 document.addEventListener('change', e => {
     if (e.target.matches('#attendanceTable input[type="checkbox"]')) {
         const tr = e.target.closest('tr');
@@ -55,16 +43,9 @@ document.addEventListener('change', e => {
     }
 });
 
-// initial compute on load
 evaluateAll();
 
-
-/* ========================== REPORT PER SESSION (S1..S6) ========================== */
-/* Definitions for each session k = 1..6:
-   - total[k]         = number of students (rows)
-   - present[k]       = students with S_k checked
-   - participated[k]  = students with P_k checked
-*/
+/* ========================== REPORT PER SESSION ========================== */
 function computeSessionReport() {
     const rows = Array.from(document.querySelectorAll('#attendanceTable tbody tr'));
     const n = rows.length;
@@ -76,8 +57,8 @@ function computeSessionReport() {
 
     rows.forEach(tr => {
         for (let k = 1; k <= sessions; k++) {
-            const sCell = tr.querySelector(`td:nth-child(${4 + k}) input[type="checkbox"]`); // S_k => 5..10
-            const pCell = tr.querySelector(`td:nth-child(${10 + k}) input[type="checkbox"]`); // P_k => 11..16
+            const sCell = tr.querySelector(`td:nth-child(${4 + k}) input[type="checkbox"]`);
+            const pCell = tr.querySelector(`td:nth-child(${10 + k}) input[type="checkbox"]`);
             if (sCell && sCell.checked) present[k - 1]++;
             if (pCell && pCell.checked) participated[k - 1]++;
         }
@@ -86,13 +67,11 @@ function computeSessionReport() {
     return { total, present, participated };
 }
 
-/* Draw grouped bar chart: for each session (S1..S6), draw 3 bars (Total/Present/Participated) */
 function drawSessionChart({ total, present, participated }) {
     const canvas = document.getElementById('reportChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const labels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
@@ -104,14 +83,12 @@ function drawSessionChart({ total, present, participated }) {
         { name: 'Participated', values: participated, color: '#B9B29F' }
     ];
 
-    // layout
     const padding = 44;
     const chartW = canvas.width - padding * 2;
     const chartH = canvas.height - padding * 2;
 
-    const barGap = 10; // space between bars within a group
-    const groupGap = 26; // space between groups
-
+    const barGap = 10;
+    const groupGap = 26;
     const barsPerGroup = datasets.length;
     const maxVal = Math.max(...datasets.flatMap(d => d.values), 1);
 
@@ -120,19 +97,15 @@ function drawSessionChart({ total, present, participated }) {
     const innerWidth = groupWidth - barGap * (barsPerGroup - 1);
     const singleBarW = innerWidth / barsPerGroup;
 
-    // axes
     ctx.strokeStyle = '#b9ac8b';
     ctx.lineWidth = 1.25;
     ctx.beginPath();
-    // X axis
     ctx.moveTo(padding, canvas.height - padding);
     ctx.lineTo(canvas.width - padding, canvas.height - padding);
-    // Y axis
     ctx.moveTo(padding, padding);
     ctx.lineTo(padding, canvas.height - padding);
     ctx.stroke();
 
-    // horizontal guides
     ctx.strokeStyle = 'rgba(0,0,0,0.06)';
     ctx.lineWidth = 1;
     const guides = 5;
@@ -144,16 +117,13 @@ function drawSessionChart({ total, present, participated }) {
         ctx.stroke();
     }
 
-    // draw groups
     ctx.textAlign = 'center';
     for (let g = 0; g < groups; g++) {
         const groupX = padding + g * (groupWidth + groupGap);
-        // session label
         ctx.fillStyle = '#6f644b';
         ctx.font = '12px Inter, sans-serif';
         ctx.fillText(labels[g], groupX + groupWidth / 2, canvas.height - padding + 16);
 
-        // bars in group
         let barX = groupX;
         datasets.forEach(ds => {
             const value = ds.values[g];
@@ -163,7 +133,6 @@ function drawSessionChart({ total, present, participated }) {
             ctx.fillStyle = ds.color;
             ctx.fillRect(barX, y, singleBarW, h);
 
-            // value label above bar
             ctx.fillStyle = '#1A1917';
             ctx.font = 'bold 12px Inter, sans-serif';
             ctx.fillText(String(value), barX + singleBarW / 2, y - 6);
@@ -172,14 +141,12 @@ function drawSessionChart({ total, present, participated }) {
         });
     }
 
-    // max tick label
     ctx.fillStyle = '#6f644b';
     ctx.font = '12px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(String(maxVal), padding - 6, padding + 6);
 }
 
-// Show Report button: compute and draw per-session chart, then reveal section
 const showReportBtn = document.getElementById('showReportBtn');
 if (showReportBtn) {
     showReportBtn.addEventListener('click', () => {
@@ -190,8 +157,51 @@ if (showReportBtn) {
     });
 }
 
+/* ========================== PHP BACKEND INTEGRATION ========================== */
+function saveAttendanceToPHP() {
+    const rows = Array.from(document.querySelectorAll('#attendanceTable tbody tr'));
+    const attendanceData = {};
 
-/* ========================== FORM VALIDATION + ADD ROW ========================== */
+    rows.forEach(tr => {
+        const studentId = tr.querySelector('td:nth-child(1)').textContent.trim();
+        const sessionChecks = Array.from(tr.querySelectorAll('td:nth-child(n+5):nth-child(-n+10) input[type="checkbox"]'));
+        const partChecks = Array.from(tr.querySelectorAll('td:nth-child(n+11):nth-child(-n+16) input[type="checkbox"]'));
+
+        attendanceData[studentId] = {
+            sessions: sessionChecks.map(c => c.checked ? 1 : 0),
+            participation: partChecks.map(c => c.checked ? 1 : 0)
+        };
+    });
+
+    fetch('take_attendance.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `attendance=${encodeURIComponent(JSON.stringify(attendanceData))}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Attendance saved successfully to server!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to save attendance to server');
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
+    if (saveAttendanceBtn) {
+        saveAttendanceBtn.addEventListener('click', saveAttendanceToPHP);
+    }
+});
+
+/* ========================== FORM VALIDATION ========================== */
 const form = document.getElementById('studentForm');
 if (form) {
     const fields = {
@@ -229,7 +239,6 @@ if (form) {
         return ok;
     }
 
-    // live validation
     Object.values(fields).forEach(f => {
         if (!f.el) return;
         f.el.addEventListener('input', () => validateField(f));
@@ -240,131 +249,174 @@ if (form) {
         const results = Object.values(fields).map(validateField);
         if (results.some(ok => !ok)) { e.preventDefault(); return; }
 
-        // demo: add the student as a new row instead of real submit
         e.preventDefault();
-        const tbody = document.querySelector('#attendanceTable tbody');
-        if (!tbody) return;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-      <td>${fields.studentId.el.value.trim()}</td>
-      <td>${fields.lastName.el.value.trim()}</td>
-      <td>${fields.firstName.el.value.trim()}</td>
-      <td>AWP</td>
-      ${Array.from({length:6}).map(()=>'<td><input type="checkbox"></td>').join('')}
-      ${Array.from({length:6}).map(()=>'<td><input type="checkbox"></td>').join('')}
-      <td class="absences">0</td>
-      <td class="participations">0</td>
-      <td class="message"></td>
-    `;
-        tbody.appendChild(tr);
+        // Send to PHP backend instead of local storage
+        const formData = new FormData();
+        formData.append('studentId', fields.studentId.el.value.trim());
+        formData.append('lastName', fields.lastName.el.value.trim());
+        formData.append('firstName', fields.firstName.el.value.trim());
+        formData.append('email', fields.email.el.value.trim());
 
-        // evaluate this new row
-        evaluateRow(tr);
+        // Use Database version
+        fetch('add_student_db.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Add student to table locally
+                    const tbody = document.querySelector('#attendanceTable tbody');
+                    if (!tbody) return;
 
-        // reset form & hide errors
-        form.reset();
-        Object.values(fields).forEach(f => showError(f.wrap, true));
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                  <td>${fields.studentId.el.value.trim()}</td>
+                  <td>${fields.lastName.el.value.trim()}</td>
+                  <td>${fields.firstName.el.value.trim()}</td>
+                  <td>AWP</td>
+                  ${Array.from({length:6}).map(()=>'<td><input type="checkbox"></td>').join('')}
+                  ${Array.from({length:6}).map(()=>'<td><input type="checkbox"></td>').join('')}
+                  <td class="absences">0</td>
+                  <td class="participations">0</td>
+                  <td class="message"></td>
+                `;
+                    tbody.appendChild(tr);
+                    evaluateRow(tr);
 
-        // if the report is visible, refresh it
-        const report = document.getElementById('report');
-        const reportVisible = report && report.style.display !== 'none';
+                    // Reset form
+                    form.reset();
+                    Object.values(fields).forEach(f => showError(f.wrap, true));
 
-        if (reportVisible) {
-            const data = computeSessionReport();
-            drawSessionChart(data);
-        }
+                    alert('Student added successfully to database!');
 
-        alert('Student added locally (demo). Replace with real submit for production.');
-    });
-
-    /* ========================== jQuery interactions ========================== */
-    $(document).ready(function() {
-
-        // 1. survol -> surligner la ligne
-        $('#attendanceTable tbody tr').hover(
-            function() {
-                $(this).css('background-color', '#fff1c6'); // couleur beige clair
-            },
-            function() {
-                // retire la couleur au départ de la souris
-                $(this).css('background-color', '');
-            }
-        );
-
-        // 2. clic -> affiche une boîte avec nom complet et absences
-        $('#attendanceTable tbody').on('click', 'tr', function() {
-            const lastName = $(this).find('td:nth-child(2)').text().trim();
-            const firstName = $(this).find('td:nth-child(3)').text().trim();
-            const abs = $(this).find('.absences').text().trim();
-
-            const fullName = `${firstName} ${lastName}`;
-            alert(`Student: ${fullName}\nAbsences: ${abs}`);
-        });
-
-    });
-
-    /* ========================== jQuery interactions (duplicate?) ========================== */
-    $(document).ready(function() {
-
-        // mouse enter
-        $('#attendanceTable tbody').on('mouseenter', 'tr', function() {
-            $(this).css({
-                'background-color': '#1577a8ff',
-                'transition': 'background-color 0.2s'
+                } else if (data.errors) {
+                    // Show validation errors from server
+                    Object.keys(data.errors).forEach(field => {
+                        if (fields[field]) {
+                            showError(fields[field].wrap, false);
+                        }
+                    });
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to add student to database');
             });
-        });
+    });
+}
 
-        // mouse leave
-        $('#attendanceTable tbody').on('mouseleave', 'tr', function() {
+/* ========================== jQuery interactions ========================== */
+$(document).ready(function() {
+    $('#attendanceTable tbody').on('mouseenter', 'tr', function() {
+        $(this).css('background-color', '#fff1c6');
+    });
+
+    $('#attendanceTable tbody').on('mouseleave', 'tr', function() {
+        if (!$(this).hasClass('row-excellent')) {
             $(this).css('background-color', '');
-        });
+        }
+    });
 
-        // This block seemed broken; kept it untouched except formatting
+    $('#attendanceTable tbody').on('click', 'tr', function() {
+        const lastName = $(this).find('td:nth-child(2)').text().trim();
+        const firstName = $(this).find('td:nth-child(3)').text().trim();
+        const abs = $(this).find('.absences').text().trim();
         const absDisplay = abs || 'not evaluated';
         const fullName = `${firstName} ${lastName}`;
-
         alert(`Student: ${fullName}\nAbsences: ${absDisplay}`);
     });
 
-    /* ========================== jQuery: highlight excellent students ========================== */
-    $(document).ready(function() {
+    function ensureComputed() {
+        if (typeof evaluateAll === 'function') evaluateAll();
+    }
 
-        function ensureComputed() {
-            if (typeof evaluateAll === 'function') evaluateAll();
-        }
-
-        $('#highlightExcellentBtn').on('click', function() {
-            ensureComputed();
-
-            $('#attendanceTable tbody tr').each(function() {
-                const absText = $(this).find('.absences').text().trim();
-                const absences = parseInt(absText || '0', 10);
-
-                if (!isNaN(absences) && absences < 3) {
-                    const $row = $(this);
-                    $row.addClass('row-excellent')
-                        .fadeTo(150, 0.4)
-                        .fadeTo(150, 1.0);
-                }
-            });
-        });
-
-        $('#resetColorsBtn').on('click', function() {
-            $('#attendanceTable tbody tr').removeClass('row-excellent').css('opacity', '');
-        });
-
-        $('#attendanceTable').on('change', 'input[type="checkbox"]', function() {
-            const $tr = $(this).closest('tr');
-            if (typeof evaluateRow === 'function') evaluateRow($tr[0]);
-
-            const abs = parseInt($tr.find('.absences').text().trim() || '0', 10);
-            if (!isNaN(abs)) {
-                if (abs < 3) $tr.addClass('row-excellent');
-                else $tr.removeClass('row-excellent');
+    $('#highlightExcellentBtn').on('click', function() {
+        ensureComputed();
+        $('#attendanceTable tbody tr').each(function() {
+            const absText = $(this).find('.absences').text().trim();
+            const absences = parseInt(absText || '0', 10);
+            if (!isNaN(absences) && absences < 3) {
+                const $row = $(this);
+                $row.addClass('row-excellent')
+                    .fadeTo(150, 0.4)
+                    .fadeTo(150, 1.0);
             }
         });
-
     });
 
-}
+    $('#resetColorsBtn').on('click', function() {
+        $('#attendanceTable tbody tr').removeClass('row-excellent').css({
+            'background-color': '',
+            'opacity': ''
+        });
+    });
+
+    $('#attendanceTable').on('change', 'input[type="checkbox"]', function() {
+        const $tr = $(this).closest('tr');
+        if (typeof evaluateRow === 'function') evaluateRow($tr[0]);
+        const abs = parseInt($tr.find('.absences').text().trim() || '0', 10);
+        if (!isNaN(abs)) {
+            if (abs < 3) {
+                $tr.addClass('row-excellent');
+            } else {
+                $tr.removeClass('row-excellent');
+            }
+        }
+    });
+
+    $('#searchInput').on('input', function() {
+        const searchTerm = $(this).val().toLowerCase().trim();
+        if (searchTerm === '') {
+            $('#attendanceTable tbody tr').show();
+            return;
+        }
+        $('#attendanceTable tbody tr').each(function() {
+            const lastName = $(this).find('td:nth-child(2)').text().toLowerCase();
+            const firstName = $(this).find('td:nth-child(3)').text().toLowerCase();
+            const fullName = `${firstName} ${lastName}`;
+            if (lastName.includes(searchTerm) || firstName.includes(searchTerm) || fullName.includes(searchTerm)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    $('#sortAbsencesBtn').on('click', function() {
+        sortTable('absences', 'asc');
+        $('#sortMessage').text('Currently sorted by absences (ascending)');
+    });
+
+    $('#sortParticipationBtn').on('click', function() {
+        sortTable('participation', 'desc');
+        $('#sortMessage').text('Currently sorted by participation (descending)');
+    });
+
+    function sortTable(criteria, order) {
+        ensureComputed();
+        const $tbody = $('#attendanceTable tbody');
+        const $rows = $tbody.find('tr').get();
+        $rows.sort(function(a, b) {
+            let aValue, bValue;
+            if (criteria === 'absences') {
+                aValue = parseInt($(a).find('.absences').text().trim() || '0', 10);
+                bValue = parseInt($(b).find('.absences').text().trim() || '0', 10);
+            } else if (criteria === 'participation') {
+                aValue = parseInt($(a).find('.participations').text().trim() || '0', 10);
+                bValue = parseInt($(b).find('.participations').text().trim() || '0', 10);
+            }
+            if (order === 'asc') {
+                return aValue - bValue;
+            } else {
+                return bValue - aValue;
+            }
+        });
+        $.each($rows, function(index, row) {
+            $tbody.append(row);
+        });
+    }
+});
